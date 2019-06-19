@@ -1,2 +1,8 @@
 node_modules
 build
+pycryto
+proving.key
+verification.key
+out
+out.code
+witness
