@@ -1,0 +1,18 @@
+//Simple example of proving that you know the lowest of three numbers
+
+def main (private field a,\
+ private field b, \
+ private field c, \
+ public field d) -> (field):
+
+ //assert a, b, or c is equal to d
+ 0 == if d == a || d == b || d == c then 0 else 1 fi 
+
+ field lowestbid = 0
+ lowestbid = lowestbid + if a < b && a < c then 1 else 0 fi 
+ lowestbid = lowestbid + if b < a && b < c then 1 else 0 fi
+ lowestbid = lowestbid + if c < a && c < b then 1 else 0 fi
+
+ //To Do - How to handle equal bids 
+
+ return lowestbid

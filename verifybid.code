@@ -1,0 +1,101 @@
+/// This zksnark is to be used to verify that an operator has choosen 
+/// the lowest bid that was actually submitted by an approved supplier was choosen 
+/// by the operator for the work. For this proof of concept, we will structure the 
+/// proof to use 3 suppliers. 
+
+///    Inputs for the SNARK
+
+///    PUBLIC FIELDS
+///    input: field[3] public keys for each supplier - should be EDDSA public keys
+///    *  A: Curve point. Public part of the key used to create S.
+///    *  context: Curve parameters used to create S. Tells you which curve was used.
+
+///    PRIVATE FIELDS 
+///    input: field[3] actual bid from each supplier
+///    input: Requires per each EDDSA signatures per supplier     
+///    *  R: Curve point. Hidden version of the per-message nonce.
+///    *  S: Field element. Signature to be verified.
+///    input: a secret to aide in building out the merkel tree of the results
+
+///    Returns for the SNARK
+///    return: a merkel tree including...
+///    1. private key of choosen supplier
+///    2. choosen bid
+///    3. secret
+///    4. zero (placeholder)
+
+// In the vectors, the supplier order should be kept the same to compare/access (i.e. supplier one has first bid, supplier two second bid, etc.)
+
+//For signatures
+import "signatures/verifyEddsa.code" as verifyEddsa
+//For unpacking bids correctly
+import "utils/pack/unpack128.code" as unpack128
+import "utils/pack/pack128.code" as pack128
+import "utils/pack/unpack256.code" as unpack256
+//For unpacking signatures correctly
+import "utils/pack/pack128.code" as pack128
+//For merkle tree - changed to padded
+import "hashes/sha256/512bitPadded.code" as sha256
+
+def main(private field[6] R, \
+ field[6] A, \
+ field[3] S, \
+ field[10] context, \
+ private field secret, \
+ private field bidone, \
+ private field bidtwo, \
+ private field bidthree) -> (field[2]):
+ 
+//Since each message is constructed from the bids, no way to input a faulty bid
+
+//Reconstruct messages:
+//Note: Field element can be a value between 0 and p (p upper limit: 2^254)
+//Makes an assumption that every bid will be 64 bit number
+//Message in the signature should be 512 bits
+
+ field[128] bidoneunpacked = unpack128(bidone)
+ field[512] bidonemessage = [...[0; 384], ...bidoneunpacked]
+ field[128] bidtwounpacked = unpack128(bidtwo)
+ field[512] bidtwomessage = [...[0; 384], ...bidtwounpacked]
+ field[128] bidthreeunpacked = unpack128(bidthree)
+ field[512] bidthreemessage = [...[0; 384], ...bidthreeunpacked]
+
+ // Supplier 1
+ 1 == verifyEddsa(R[0..2], S[0], A[0..2], bidonemessage[0..256], bidonemessage[256..512], context)
+ // Supplier 2
+ //1 == verifyEddsa(R[2..4], S[1], A[2..4], bidtwomessage[0..256], bidtwomessage[256..512], context)
+ // Supplier 3
+ //1 == verifyEddsa(R[4..6], S[2], A[4..6], bidthreemessage[0..256], bidthreemessage[256..512], context)
+
+//Lowest bid should correllate with supplier
+//To Do: write the simplest implementation to simplify, each of the below would be a range proof
+field[3] lowestbidder = [...[0; 3]] //Save supplier and the lowest bid
+lowestbidder = if bidone < bidtwo && bidtwo < bidthree then [A[0], A[1], bidone] else [...[0; 3]] fi 
+lowestbidder = if bidtwo < bidone && bidtwo < bidthree then [A[2], A[3], bidtwo] else [...[0; 3]] fi
+lowestbidder = if bidthree < bidone && bidthree < bidtwo then [A[4], A[5], bidthree] else [...[0; 3]] fi
+
+
+//Now we have the lowest bid, supplier sig verified, and secret --> ready for the merkle tree
+//512bitpadded - same merkle tree as ethereum 
+//Leaf One: lowest bid + secret
+//Makes an assumption that every secret will be 64 bit number
+field lowest = lowestbidder[2]
+field[256] lowestbidunpacked = unpack256(lowest)
+field[256] secretunpacked = unpack256(secret)
+field[256] leafone = sha256(lowestbidunpacked, secretunpacked)
+//Leaf Two: supplier of lowest bid A[0] + A[1]
+//We know that A[0] and A[1] will be 64 bit numbers, need to unpack to 256
+field[256] a0unpacked = unpack256(A[0])
+field[256] a1unpacked = unpack256(A[1])
+field[256] leaftwo = sha256(a0unpacked, a1unpacked)
+//Build the root of leaf one + leaf two
+field[256] root = sha256(leafone, leaftwo)
+
+//Before returning, compress back to field element root - split off 128 bits 
+res0 = pack128([root[0], root[1], root[2], root[3], root[4], root[5], root[6], root[7], root[8], root[9], root[10], root[11], root[12], root[13], root[14], root[15], root[16], root[17], root[18], root[19], root[20], root[21], root[22], root[23], root[24], root[25], root[26], root[27], root[28], root[29], root[30], root[31], root[32], root[33], root[34], root[35], root[36], root[37], root[38], root[39], root[40], root[41], root[42], root[43], root[44], root[45], root[46], root[47], root[48], root[49], root[50], root[51], root[52], root[53], root[54], root[55], root[56], root[57], root[58], root[59], root[60], root[61], root[62], root[63], root[64], root[65], root[66], root[67], root[68], root[69], root[70], root[71], root[72], root[73], root[74], root[75], root[76], root[77], root[78], root[79], root[80], root[81], root[82], root[83], root[84], root[85], root[86], root[87], root[88], root[89], root[90], root[91], root[92], root[93], root[94], root[95], root[96], root[97], root[98], root[99], root[100], root[101], root[102], root[103], root[104], root[105], root[106], root[107], root[108], root[109], root[110], root[111], root[112], root[113], root[114], root[115], root[116], root[117], root[118], root[119], root[120], root[121], root[122], root[123], root[124], root[125], root[126], root[127]])
+res1 = pack128([root[128], root[129], root[130], root[131], root[132], root[133], root[134], root[135], root[136], root[137], root[138], root[139], root[140], root[141], root[142], root[143], root[144], root[145], root[146], root[147], root[148], root[149], root[150], root[151], root[152], root[153], root[154], root[155], root[156], root[157], root[158], root[159], root[160], root[161], root[162], root[163], root[164], root[165], root[166], root[167], root[168], root[169], root[170], root[171], root[172], root[173], root[174], root[175], root[176], root[177], root[178], root[179], root[180], root[181], root[182], root[183], root[184], root[185], root[186], root[187], root[188], root[189], root[190], root[191], root[192], root[193], root[194], root[195], root[196], root[197], root[198], root[199], root[200], root[201], root[202], root[203], root[204], root[205], root[206], root[207], root[208], root[209], root[210], root[211], root[212], root[213], root[214], root[215], root[216], root[217], root[218], root[219], root[220], root[221], root[222], root[223], root[224], root[225], root[226], root[227], root[228], root[229], root[230], root[231], root[232], root[233], root[234], root[235], root[236], root[237], root[238], root[239], root[240], root[241], root[242], root[243], root[244], root[245], root[246], root[247], root[248], root[249], root[250], root[251], root[252], root[253], root[254], root[255]])
+
+return [res0, res1]
+
+
+
