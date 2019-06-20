@@ -1,0 +1,71 @@
+/// This zksnark is to be used to verify that a message is signed by a particular address
+
+///    Inputs for the SNARK
+
+///    PUBLIC FIELDS
+///    input: field[3] public keys for each supplier - should be EDDSA public keys
+///    *  A: Curve point. Public part of the key used to create S.
+///    *  context: Curve parameters used to create S. Tells you which curve was used.
+
+///    PRIVATE FIELDS 
+///    input: Requires per each EDDSA signatures per supplier     
+///    *  R: Curve point. Hidden version of the per-message nonce.
+///    *  S: Field element. Signature to be verified.
+
+///    Returns for the SNARK
+///    return: 1 if true
+
+
+//For signatures
+import "signatures/verifyEddsa.code" as verifyEddsa
+//For unpacking bids correctly
+import "utils/pack/unpack128.code" as unpack128
+import "utils/pack/pack128.code" as pack128
+import "utils/pack/unpack256.code" as unpack256
+// Parameters are based on: https://github.com/HarryR/ethsnarks/tree/9cdf0117c2e42c691e75b98979cb29b099eca998/src/jubjub 
+// Note: parameters will be updated soon to be more compatible with zCash's implementation
+
+def context() -> (field[10]):
+
+// Order of the curve E
+    field JUBJUBE = 21888242871839275222246405745257275088614511777268538073601725287587578984328    
+    field JUBJUBC = 8   // Cofactor
+    field JUBJUBA = 168700    // Coefficient A
+    field JUBJUBD = 168696    // Coefficient D
+    field MONTA = 168698    // int(2*(JUBJUB_A+JUBJUB_D)/(JUBJUB_A-JUBJUB_D))
+    field MONTB = 1    // int(4/(JUBJUB_A-JUBJUB_D))
+    
+// Point at infinity
+    field[2] infinity = [0, 1]
+
+//  Generator
+    field Gu = 16540640123574156134436876038791482806971768689494387082833631921987005038935
+    field Gv = 20819045374670962167435360035096875258406992893633759881276124905556507972311
+
+// Index
+//         0       1         2            3         4   5      6       7        8      10
+return [JUBJUBA, JUBJUBD, infinity[0], infinity[1], Gu, Gv, JUBJUBE, JUBJUBC, MONTA, MONTB]
+def main(private field[2] R, \
+ field[2] A, \
+ field S, \
+ private field themessage) -> (field):
+
+//Reconstruct messages:
+//Note: Field element can be a value between 0 and p (p upper limit: 2^254)
+//Makes an assumption that every bid will be 64 bit number
+//Message in the signature should be 512 bits
+
+ field[128] message = unpack128(themessage)
+ field[512] messageforsig = [...[0; 384], ...message]
+
+ context = context()
+
+ // Verify Signature
+ 1 == verifyEddsa(R, S, A, messageforsig[0..256], messageforsig[256..512], context)
+
+ field truth = 1
+
+ return 1
+
+
+
