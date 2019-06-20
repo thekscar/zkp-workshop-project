@@ -1,14 +1,13 @@
 /// This zksnark is to be used to verify that an operator has choosen 
 /// the lowest bid that was actually submitted by an approved supplier was choosen 
 /// by the operator for the work. For this proof of concept, we will structure the 
-/// proof to use 3 suppliers. 
+/// proof to use 3 suppliers only. 
 
 ///    Inputs for the SNARK
 
 ///    PUBLIC FIELDS
 ///    input: field[3] public keys for each supplier - should be EDDSA public keys
 ///    *  A: Curve point. Public part of the key used to create S.
-///    *  context: Curve parameters used to create S. Tells you which curve was used.
 
 ///    PRIVATE FIELDS 
 ///    input: field[3] actual bid from each supplier
@@ -16,6 +15,9 @@
 ///    *  R: Curve point. Hidden version of the per-message nonce.
 ///    *  S: Field element. Signature to be verified.
 ///    input: a secret to aide in building out the merkel tree of the results
+
+///    *  context: Curve parameters used to create S. Tells you which curve was used.
+///    The context can be generated from the babyjubjub curve.
 
 ///    Returns for the SNARK
 ///    return: a merkel tree including...
